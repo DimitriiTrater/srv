@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 4.0)
+project(srv_4 CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_executable(${PROJECT_NAME} main.cpp)
+
