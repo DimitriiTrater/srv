@@ -6,11 +6,11 @@
 #include <string>
 
 
-int coins = 101;
+int coins = 100;
 std::mutex m;
 std::string last_taken{};
 
-void coin_sharing(std::string name, int & thief_coins, int const & comp_coins) 
+void coin_sharing(std::string name, int & thief_coins, int const & comp_coins)
 {
    while (true)
    {
@@ -34,10 +34,10 @@ void coin_sharing(std::string name, int & thief_coins, int const & comp_coins)
       }
       if (thief_coins <= comp_coins)
       {
-         std::println("thief: {}", name);
          coins -= 1;
          thief_coins += 1;
          last_taken = name;
+         std::println("thief {} takes a coin, thief_coins: {}, coins: {},", name, thief_coins, coins);
       }
       m.unlock();
    }
