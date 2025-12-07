@@ -1,12 +1,11 @@
-
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <print>
 #include <thread>
 #include <utility>
-
 #include "mutex.hpp"
 
 namespace
@@ -26,6 +25,8 @@ enum class ProgramState : uint8_t
   CookNoSalary,
   Finished
 };
+ProgramState program_state = ProgramState::Running;
+
 
 std::string ToString(ProgramState state)
 {
@@ -37,6 +38,7 @@ std::string ToString(ProgramState state)
   case ProgramState::CookNoSalary: return "CookNoSalary";
   case ProgramState::Finished: return "Finished";
   }
+  std::unreachable();
 }
 
 enum class Turn : uint8_t
@@ -44,23 +46,20 @@ enum class Turn : uint8_t
   Cook,
   FatMen
 };
-
-ProgramState program_state = ProgramState::Running;
-
 Turn current_turn = Turn::Cook;
+
 
 class FatMan
 {
 public:
   FatMan() = default;
-  FatMan(int const gluttony): gluttony_(gluttony) {} 
+  FatMan(int const gluttony): gluttony_(gluttony) {}
 
   void Eat(int & dish)
   {
     while (true)
     {
       m.lock();
-      // std::println("Eat");
       if (program_state != ProgramState::Running || IsBlown())
       {
         m.unlock();
@@ -69,7 +68,6 @@ public:
 
       if (current_turn != Turn::FatMen || has_eaten_this_round_)
       {
-        // std::println("{}", has_eaten_this_round_);
         m.unlock();
         std::this_thread::yield();
         continue;
@@ -77,12 +75,11 @@ public:
 
       if (dish >= gluttony_)
       {
-        // std::println("Eat");
         amount_of_nuggets_ += gluttony_;
         dish -= gluttony_;
         has_eaten_this_round_ = true;
         fat_men_eaten_count += 1;
-        
+
         if (IsBlown())
         {
           m.unlock();
@@ -91,7 +88,7 @@ public:
       }
       else
       {
-        amount_of_nuggets_ += gluttony_ - dish;
+        amount_of_nuggets_ += dish;
         dish -= gluttony_;
         program_state = ProgramState::CookFired;
         has_eaten_this_round_ = true;
@@ -99,13 +96,7 @@ public:
       }
 
       m.unlock();
-
       std::this_thread::yield();
-
-      if (program_state != ProgramState::Running)
-      {
-        break;
-      }
     }
   }
 
@@ -123,15 +114,20 @@ class Cook
 {
 public:
   Cook() = default;
-  Cook(int const efficiency_factor) : efficiency_factor_(efficiency_factor) {} 
+  Cook(int const efficiency_factor) : efficiency_factor_(efficiency_factor) {}
 
   void Serve(int & dish1, int & dish2, int & dish3)
   {
     auto start = std::chrono::high_resolution_clock::now();
-    while (program_state == ProgramState::Running)
+    while (true)
     {
       m.lock();
-      
+      if (program_state != ProgramState::Running)
+      {
+        m.unlock();
+        break;
+      }
+
       if (current_turn != Turn::Cook) {
         // std::println("Non cook turn");
         // std::println("{}", Print(program_state));
@@ -158,9 +154,6 @@ public:
       m.unlock();
 
       std::this_thread::yield();
-      if (program_state != ProgramState::Running) {
-        break;
-      }
     }
   }
 
@@ -170,49 +163,35 @@ private:
 
 
 ProgramState CheckState(
-  FatMan & fat_man1,
-  FatMan & fat_man2,
-  FatMan & fat_man3,
-  int dish1,
-  int dish2,
-  int dish3
-)
+  FatMan & fat_man1, FatMan & fat_man2, FatMan & fat_man3,
+  int dish1, int dish2, int dish3)
 {
   m.lock();
-  // std::println("CheckState, {}", Print(program_state));
   if (program_state != ProgramState::Running) {
     m.unlock();
     return program_state;
   }
 
-  // std::println("{}, {}, {}", fat_man1.IsBlown() , fat_man2.IsBlown() , fat_man3.IsBlown());
-  // std::println("{}, {}, {}", dish1 , dish2 , dish3);
-  // std::println("{}, {}", std::to_underlying(current_turn) , fat_men_eaten_count);
-  // std::println("{}, {}, {}", fat_man1.GetEaten(), fat_man2.GetEaten(), fat_man3.GetEaten());
   if (fat_man1.IsBlown() && fat_man2.IsBlown() && fat_man3.IsBlown())
   {
-    // std::println("IsBlown");
     program_state = ProgramState::CookNoSalary;
     current_turn = Turn::Cook;
   }
   else if (dish1 < 0 || dish2 < 0 || dish3 < 0)
   {
-    // std::println("IsFired");
     program_state = ProgramState::CookFired;
     current_turn = Turn::Cook;
   }
   else if (current_turn == Turn::FatMen && fat_men_eaten_count >= 3)
   {
-    // std::println("Update Round");
     current_turn = Turn::Cook;
     fat_men_eaten_count = 0;
     fat_man1.ResetRound();
     fat_man2.ResetRound();
     fat_man3.ResetRound();
   }
-  
+
   ProgramState current_state = program_state;
-  // std::println("Current State {}", Print(current_state));
   m.unlock();
   return current_state;
 }
@@ -226,7 +205,7 @@ void RunScenario(std::string const & scenario_name, int gluttony1, int gluttony2
   int dish2 = 3000;
   int dish3 = 3000;
 
-  program_state = ProgramState::Running; 
+  program_state = ProgramState::Running;
   current_turn = Turn::Cook;
 
   FatMan fat_man1(gluttony1);
@@ -264,7 +243,7 @@ int main()
 {
   RunScenario("CookQuit", 50, 50, 50, 100);
   RunScenario("CookNoSalary", 1000, 1000, 1000, 1000);
-  RunScenario("CookIsFired", 50, 50, 5000, 1);
-  
+  RunScenario("CookIsFired", 50, 50, 100, 1);
+
   return 0;
 }

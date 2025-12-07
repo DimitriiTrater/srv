@@ -1,4 +1,6 @@
 #include <semaphore>
+#include <thread>
+
 class Mutex
 {
 public:
@@ -16,7 +18,7 @@ public:
     semaphore_.release();
   }
 
-  
+
 private:
   std::binary_semaphore semaphore_ {1};
 };
